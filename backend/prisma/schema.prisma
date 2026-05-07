@@ -1,0 +1,222 @@
+// Proyecto Margarita - Prisma Schema
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  engineType = "library"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Users
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String   // hashed with bcrypt
+  nickname  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  stories                    Story[]
+  places                     Place[]
+  gameSessions               GameSession[]
+  collaborativeSessionsCreated CollaborativeSession[] @relation("createdBy")
+  collaborativeSessionMembers CollaborativeSessionMember[]
+
+  @@index([email])
+}
+
+// Stories
+model Story {
+  id                  String   @id @default(uuid())
+  name                String
+  description         String?
+  difficulty          Difficulty @default(MEDIUM)
+  estimatedDuration   Int?      // minutes
+  createdBy           String
+  createdByUser       User      @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  // Relations
+  missions            Mission[]
+  gameSessions        GameSession[]
+  collaborativeSessions CollaborativeSession[]
+
+  @@index([createdBy])
+  @@index([difficulty])
+}
+
+// Missions
+model Mission {
+  id              String   @id @default(uuid())
+  storyId         String
+  story           Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  sequenceOrder   Int
+  placeId         String
+  place           Place    @relation(fields: [placeId], references: [id], onDelete: Restrict)
+  narrative       String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  puzzles         Puzzle[]
+  playerProgress  PlayerProgress[]
+
+  @@unique([storyId, sequenceOrder])
+  @@index([storyId])
+  @@index([placeId])
+}
+
+// Places
+model Place {
+  id                String   @id @default(uuid())
+  name              String
+  barrio            String
+  latitude          Decimal  @db.Decimal(9, 6)
+  longitude         Decimal  @db.Decimal(9, 6)
+  description       String?
+  historicalContext String?
+  imageUrl          String?
+  createdBy         String?
+  createdByUser     User?    @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+  verified          Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  missions          Mission[]
+
+  @@index([barrio])
+  @@index([verified])
+  @@index([latitude, longitude])
+}
+
+// Puzzles
+model Puzzle {
+  id              String   @id @default(uuid())
+  missionId       String
+  mission         Mission  @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  question        String
+  correctAnswer   String   // normalized for comparison
+  hint            String?
+  difficulty      Difficulty?
+  imageUrl        String?  // photo of the physical clue
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  playerProgress  PlayerProgress[]
+
+  @@index([missionId])
+}
+
+// Game Sessions
+model GameSession {
+  id                String      @id @default(uuid())
+  userId            String
+  user              User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  storyId           String
+  story             Story       @relation(fields: [storyId], references: [id], onDelete: Restrict)
+  gameMode          GameMode    @default(SOLO)
+  status            GameStatus  @default(IN_PROGRESS)
+  startedAt         DateTime    @default(now())
+  completedAt       DateTime?
+  totalTimeSeconds  Int         @default(0)
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  // Relations
+  playerProgress    PlayerProgress[]
+
+  @@index([userId])
+  @@index([storyId])
+  @@index([status])
+}
+
+// Player Progress
+model PlayerProgress {
+  id              String   @id @default(uuid())
+  sessionId       String
+  session         GameSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  missionId       String
+  mission         Mission  @relation(fields: [missionId], references: [id], onDelete: Restrict)
+  puzzleId        String
+  puzzle          Puzzle   @relation(fields: [puzzleId], references: [id], onDelete: Restrict)
+  playerAnswer    String
+  isCorrect       Boolean
+  attemptNumber   Int      @default(1)
+  completedAt     DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([sessionId])
+  @@index([missionId])
+  @@index([puzzleId])
+}
+
+// Collaborative Sessions
+model CollaborativeSession {
+  id              String    @id @default(uuid())
+  sessionCode     String    @unique
+  storyId         String
+  story           Story     @relation(fields: [storyId], references: [id], onDelete: Restrict)
+  creatorUserId   String
+  creatorUser     User      @relation("createdBy", fields: [creatorUserId], references: [id], onDelete: Cascade)
+  maxPlayers      Int       @default(4)
+  status          SessionStatus @default(WAITING)
+  sessionUrl      String?
+  createdAt       DateTime  @default(now())
+  expiresAt       DateTime  @default(dbgenerated("now() + interval '24 hours'"))
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  members         CollaborativeSessionMember[]
+
+  @@index([sessionCode])
+  @@index([creatorUserId])
+}
+
+// Collaborative Session Members
+model CollaborativeSessionMember {
+  id              String    @id @default(uuid())
+  sessionId       String
+  session         CollaborativeSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  joinedAt        DateTime  @default(now())
+  isReady         Boolean   @default(false)
+  currentMission  Int?
+
+  @@unique([sessionId, userId])
+  @@index([sessionId])
+  @@index([userId])
+}
+
+// Enums
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum GameMode {
+  SOLO
+  COLLABORATIVE
+  RIVALRY
+}
+
+enum GameStatus {
+  IN_PROGRESS
+  COMPLETED
+  ABANDONED
+}
+
+enum SessionStatus {
+  WAITING
+  IN_PROGRESS
+  COMPLETED
+}
