@@ -9,27 +9,29 @@ export interface AuthenticatedRequest extends Request {
 /**
  * Middleware to verify JWT token and attach user info to request
  */
-export const authMiddleware = (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+export const authMiddleware = (req: AuthenticatedRequest, res: Response, next: NextFunction): void => {
   try {
     const authHeader = req.headers.authorization
     const token = extractTokenFromHeader(authHeader)
 
     if (!token) {
-      return res.status(401).json({
+      res.status(401).json({
         success: false,
         message: 'No token provided',
         error: 'MISSING_TOKEN'
       })
+      return
     }
 
     const payload = verifyAccessToken(token)
 
     if (!payload) {
-      return res.status(401).json({
+      res.status(401).json({
         success: false,
         message: 'Invalid or expired token',
         error: 'INVALID_TOKEN'
       })
+      return
     }
 
     // Attach user info to request
@@ -38,7 +40,7 @@ export const authMiddleware = (req: AuthenticatedRequest, res: Response, next: N
 
     next()
   } catch (error) {
-    return res.status(401).json({
+    res.status(401).json({
       success: false,
       message: 'Authentication failed',
       error: error instanceof Error ? error.message : 'UNKNOWN_ERROR'
@@ -49,7 +51,7 @@ export const authMiddleware = (req: AuthenticatedRequest, res: Response, next: N
 /**
  * Optional middleware - attach user info if token is present, but don't require it
  */
-export const optionalAuthMiddleware = (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+export const optionalAuthMiddleware = (req: AuthenticatedRequest, _res: Response, next: NextFunction): void => {
   try {
     const authHeader = req.headers.authorization
     const token = extractTokenFromHeader(authHeader)
