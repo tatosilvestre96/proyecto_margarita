@@ -1,7 +1,7 @@
 # Proyecto Margarita - Backlog de Ideas
 
 **Última actualización:** 2026-05-12  
-**Total de ideas:** 19
+**Total de ideas:** 20
 
 ---
 
@@ -95,6 +95,7 @@ Simplemente edita este archivo y agrega tu idea en la sección correspondiente.
 ## 🎯 Mejoras Generales
 
 <!-- Mejoras generales, refactoring, technical debt -->
+- [ ] **[2026-05-12 16:30]** Crear una versión MVP del proyecto
 
 ---
 
